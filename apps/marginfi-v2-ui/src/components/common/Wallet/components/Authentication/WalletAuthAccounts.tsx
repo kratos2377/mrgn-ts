@@ -1,6 +1,10 @@
 import React from "react";
 
+import { MarginfiAccountWrapper } from "@mrgnlabs/marginfi-client-v2";
+
 import { useMrgnlendStore } from "~/store";
+
+import { cn } from "~/utils/themeUtils";
 
 import { Button } from "~/components/ui/button";
 import { IconChevronDown, IconUserPlus, IconPencil, IconCheck } from "~/components/ui/icons";
@@ -21,6 +25,8 @@ export const WalletAuthAccounts = () => {
     WalletAuthAccountsState.DEFAULT
   );
   const [newAccountName, setNewAccountName] = React.useState<string>("");
+  const [isActivatingAccount, setIsActivatingAccount] = React.useState<number | null>(null);
+  const [isActivatingAccountDelay, setIsActivatingAccountDelay] = React.useState<number | null>(null);
   const [initialized, marginfiAccounts, selectedAccount, fetchMrgnlendState] = useMrgnlendStore((state) => [
     state.initialized,
     state.marginfiAccounts,
@@ -33,6 +39,21 @@ export const WalletAuthAccounts = () => {
     const index = marginfiAccounts.findIndex((account) => account.address.equals(selectedAccount.address));
     return `Account ${index + 1}`;
   }, [selectedAccount, marginfiAccounts]);
+
+  const activateAccount = React.useCallback(
+    async (account: MarginfiAccountWrapper, index: number) => {
+      setIsActivatingAccount(index);
+      const timer = setTimeout(() => setIsActivatingAccountDelay(index), 200);
+      localStorage.setItem("mfiAccount", account.address.toBase58());
+      await fetchMrgnlendState();
+      clearTimeout(timer);
+      setIsActivatingAccount(null);
+      setIsActivatingAccountDelay(null);
+
+      return () => clearTimeout(timer);
+    },
+    [fetchMrgnlendState]
+  );
 
   React.useEffect(() => {
     if (!marginfiAccounts.length) return;
@@ -59,26 +80,28 @@ export const WalletAuthAccounts = () => {
                 <h4 className="font-medium leading-none">Your accounts</h4>
                 <p className="text-sm text-muted-foreground">Select your marginfi account below.</p>
               </div>
-              <div className="grid gap-2">
+              <div
+                className={cn("grid gap-2", isActivatingAccount && "pointer-events-none opacity-75 animate-pulsate")}
+              >
                 {marginfiAccounts.map((account, index) => (
                   <Button key={index} variant="ghost" className="justify-start gap-4 px-1 hover:bg-transparent">
                     <Label htmlFor="width">Account {index + 1}</Label>
-                    <span className="text-muted-foreground text-xs">{shortenAddress(account.address.toBase58())}</span>
-                    {selectedAccount && selectedAccount.address.equals(account.address) && (
-                      <Badge className="text-xs p-1 h-5">active</Badge>
-                    )}
+                    <span className="text-muted-foreground text-xs">
+                      {isActivatingAccountDelay === index ? "Switching..." : shortenAddress(account.address.toBase58())}
+                    </span>
+                    {isActivatingAccount === null &&
+                      selectedAccount &&
+                      selectedAccount.address.equals(account.address) && (
+                        <Badge className="text-xs p-1 h-5">active</Badge>
+                      )}
                     <div className="flex items-center ml-auto">
                       <button className="p-2 transition-colors rounded-lg hover:bg-accent">
                         <IconPencil size={16} />
                       </button>
                       <button
-                        className="p-2 transition-colors rounded-lg hover:bg-accent disabled:cursor-default di"
+                        className="p-2 transition-colors rounded-lg hover:bg-accent disabled:cursor-default"
                         disabled={Boolean(selectedAccount && selectedAccount.address.equals(account.address))}
-                        onClick={() => {
-                          if (selectedAccount && selectedAccount.address.equals(account.address)) return;
-                          localStorage.setItem("mfiAccount", account.address.toBase58());
-                          fetchMrgnlendState();
-                        }}
+                        onClick={() => activateAccount(account, index)}
                       >
                         <IconCheck size={16} />
                       </button>
@@ -128,6 +151,32 @@ export const WalletAuthAccounts = () => {
               >
                 Cancel
               </Button>
+              <div
+                className={cn(
+                  "grid gap-2 transition-opacity",
+                  isActivatingAccount !== null && "pointer-events-none animate-pulsate"
+                )}
+              >
+                {marginfiAccounts.map((account, index) => (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    className="justify-start gap-4 px-2"
+                    onClick={() => activateAccount(account, index)}
+                  >
+                    <Label htmlFor="width">Account {index + 1}</Label>
+                    <span className="text-muted-foreground text-xs">{shortenAddress(account.address.toBase58())}</span>
+                    {isActivatingAccount === null &&
+                      selectedAccount &&
+                      selectedAccount.address.equals(account.address) && (
+                        <Badge className="text-xs p-1 h-5">active</Badge>
+                      )}
+                    {isActivatingAccount === index && (
+                      <span className="text-xs text-muted-foreground/50">switching...</span>
+                    )}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
         </PopoverContent>
