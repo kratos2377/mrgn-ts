@@ -42,17 +42,20 @@ export const WalletAuthAccounts = () => {
 
   const activateAccount = React.useCallback(
     async (account: MarginfiAccountWrapper, index: number) => {
+      if (selectedAccount && selectedAccount.address.equals(account.address)) return;
       setIsActivatingAccount(index);
-      const timer = setTimeout(() => setIsActivatingAccountDelay(index), 200);
+      const switchingLabelTimer = setTimeout(() => setIsActivatingAccountDelay(index), 500);
+
       localStorage.setItem("mfiAccount", account.address.toBase58());
       await fetchMrgnlendState();
-      clearTimeout(timer);
+
+      clearTimeout(switchingLabelTimer);
       setIsActivatingAccount(null);
       setIsActivatingAccountDelay(null);
 
-      return () => clearTimeout(timer);
+      return () => clearTimeout(switchingLabelTimer);
     },
-    [fetchMrgnlendState]
+    [fetchMrgnlendState, selectedAccount]
   );
 
   React.useEffect(() => {
@@ -80,9 +83,7 @@ export const WalletAuthAccounts = () => {
                 <h4 className="font-medium leading-none">Your accounts</h4>
                 <p className="text-sm text-muted-foreground">Select your marginfi account below.</p>
               </div>
-              <div
-                className={cn("grid gap-2", isActivatingAccount && "pointer-events-none opacity-75 animate-pulsate")}
-              >
+              <div className={cn("grid gap-2", isActivatingAccount !== null && "pointer-events-none animate-pulsate")}>
                 {marginfiAccounts.map((account, index) => (
                   <Button key={index} variant="ghost" className="justify-start gap-4 px-1 hover:bg-transparent">
                     <Label htmlFor="width">Account {index + 1}</Label>
